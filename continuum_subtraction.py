@@ -10,7 +10,7 @@ import numpy as np
 import pickle
 
 
-def qso_subtraction(cube, wave_masked, qso_mask=None):
+def qso_subtraction(cube, wave_masked, qso_mask=None, update=True):
     """
     Performs QSO subtraction at the position of a given mask. 
     wave_masked [np.array] = array of wavelength in A, where the scaling factor is calculated
@@ -21,14 +21,16 @@ def qso_subtraction(cube, wave_masked, qso_mask=None):
     """
     wave = cube.wavearr
     delta_wave = wave_masked[1] - wave_masked[0]
-    continuum_eval = cube.continuum_eval(wave_masked)
+    continuum_eval = cube.model(wave_masked)
     
     mask_1 = wave >= wave_masked[0]
     mask_2 = wave <= wave_masked[-1]
     mask = mask_1 * mask_2
 
-    h = np.sum(cube[mask,:,:], axis=0)*1.25 / (np.sum(continuum_eval)* delta_wave)
-
-    cube.data = cube.data - h[np.newaxis,:,:] *  cube.continuum_eval(wave)[:, np.newaxis, np.newaxis]
-
+    h = np.sum(cube.data[mask,:,:], axis=0)*1.25 / (np.sum(continuum_eval)* delta_wave)
+    if update:
+        cube.data = cube.data - h[np.newaxis,:,:] *  cube.model(wave)[:, np.newaxis, np.newaxis]
+    else:
+        return cube.data - h[np.newaxis,:,:] *  cube.model(wave)[:, np.newaxis, np.newaxis]
+    
     

@@ -18,7 +18,7 @@ import PSF_subtraction as PSF
 import astropy.io.fits as F
 import numpy as np
 import pickle
-from scipy.interpolate import splrep, splev
+from scipy.interpolate import splrep, splev, interp1d
 import Voigt as vg
 
 class cube:
@@ -38,17 +38,21 @@ class cube:
         data_sp =  pickle.load(open(path_spline, 'rb'), encoding='latin1')
         continuum_dots = data_sp[1]
         continuum_wave = data_sp[0]
-        self.spline =  splrep(continuum_wave, continuum_dots)
+        self.spline =  interp1d(continuum_wave, continuum_dots, kind='cubic')
 
     def load_systems(self, N_arr, z_arr):
         # We assume b = 10 km/s , this parameter is not relevant as we are dealing with DLAs
         self.N_arr = N_arr
         self.z_arr = z_arr
 
-    def continuum_eval(self, wave):
-        exponentials = vg.arrayvoigt(wave, len(self.N_arr)*[10], self.N_arr, self.z_arr)
-        continuum = splev(wave, self.spline)
-        return exponentials * continuum
+    def continuum(self, wave):
+        return self.spline(wave)
+    
+    def systems_eval(self, wave):
+        return vg.arrayvoigt(wave, len(self.N_arr)*[10], self.N_arr, self.z_arr)
+    
+    def model(self, wave):
+        return self.continuum(wave) * self.systems_eval(wave)
 
     def wave_trim(self, lamb0, lamb1, update=True):
         low_ind = (np.abs(self.wavearr - lamb0)).argmin()
@@ -60,9 +64,18 @@ class cube:
         else:
             return self.wavearr[low_ind:max_ind], self.data[low_ind:max_ind,:,:]
 
-    def spatial_trim(self, side):
-        pass
+    def spatial_trim(self, center, side, update=True):
+        # Side is in arcseconds and typical spatial sampling of MUSE cubes is 0.2" 
 
+        N_pixels = int((side/0.2)/2)
+        x0, y0 = center
+
+        if update:
+            self.data = self.data[:,x0-N_pixels:x0+N_pixels, y0-N_pixels:y0+N_pixels]
+        
+        else:
+            return self.data[:,x0-N_pixels:x0+N_pixels, y0-N_pixels : y0+N_pixels]
+        
     def reescale_variance(self, RMS_mask_path):
         pass
     
