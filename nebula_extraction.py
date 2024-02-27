@@ -22,11 +22,12 @@ from scipy.interpolate import splrep, splev, interp1d
 import Voigt as vg
 
 class cube:
-    def __init__(self, path_data_cube, z_em, data_ind=1, var_ind=2):
+    def __init__(self, path_data_cube, z_em, center, data_ind=1, var_ind=2):
         self.hdu = F.open(path_data_cube)
         self.data = self.hdu[data_ind].data
         self.variance = self.hdu[var_ind].data
         self.z_em = z_em
+        self.center = center
 
         # Computing wave arr
         initial_lamb = self.hdu[1].header['CRVAL3']
@@ -61,21 +62,45 @@ class cube:
         if update:
             self.data = self.data[low_ind:max_ind,:,:]
             self.wavearr = self.wavearr[low_ind:max_ind]
+            self.variance  = self.variance[low_ind:max_ind]
         else:
             return self.wavearr[low_ind:max_ind], self.data[low_ind:max_ind,:,:]
 
-    def spatial_trim(self, center, side, update=True):
+    def spatial_trim(self, side, update=True):
         # Side is in arcseconds and typical spatial sampling of MUSE cubes is 0.2" 
 
         N_pixels = int((side/0.2)/2)
-        x0, y0 = center
+        x0, y0 = self.center
 
         if update:
-            self.data = self.data[:,x0-N_pixels:x0+N_pixels, y0-N_pixels:y0+N_pixels]
-        
+            self.data = self.data[:,x0-N_pixels:x0+N_pixels+1, y0-N_pixels:y0+N_pixels+1]
+            self.variance  = self.variance[:,x0-N_pixels:x0+N_pixels+1, y0-N_pixels:y0+N_pixels+1]
+            self.center = (N_pixels, N_pixels)
         else:
-            return self.data[:,x0-N_pixels:x0+N_pixels, y0-N_pixels : y0+N_pixels]
-        
+            return self.data[:,x0-N_pixels:x0+N_pixels+1, y0-N_pixels : y0+N_pixels+1]
+    
     def reescale_variance(self, RMS_mask_path):
         pass
+    
+    def PSF_subtraction(self, update=True, width=150, wave_mask_width=30, lamb0=1215.67):
+        wave_mask = 1 - (self.wavearr <= lamb0-wave_mask_width/2) * (self.wavearr >= lamb0-wave_mask_width/2) 
+        if update:
+            self.data = PSF.subtract_PSF(self.data, self.center, wave_mask, width=width)
+        else:
+            return PSF.subtract_PSF(self.data, self.center, wave_mask, width=width)
+
+    def model_subtraction(self, wave_masked, qso_mask=None, update=True): 
+        # qso_mask = regions where this subtraction is going to be done. Not implemented yet.
+        csub.qso_model_subtraction(self, wave_masked, qso_mask=qso_mask, update=update) 
+
+    def continuum_median_sub(self, width=100, update=True):
+        if update:
+            self.data = csub.cont_subtract_cube(self, width=width)
+        else:
+            return csub.cont_subtract_cube(self, width=width)
+        
+    def save_cube_fits(self, file_name):
+        hdu = F.PrimaryHDU(self.data)
+        hdu.writeto(file_name, overwrite=True)
+
     
