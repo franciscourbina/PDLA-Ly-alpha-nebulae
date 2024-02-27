@@ -5,3 +5,4 @@ __pycache__/PSF_subtraction.cpython-39.pyc
 __pycache__/Voigt.cpython-39.pyc
 testing_continuum_sub.ipynb
 Voigt.py
+*.fits
