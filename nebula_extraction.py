@@ -15,6 +15,7 @@ continuum sources.
 
 import continuum_subtraction as csub 
 import PSF_subtraction as PSF 
+import detection as dt
 import astropy.io.fits as F
 import numpy as np
 import pickle
@@ -98,7 +99,18 @@ class cube:
             self.data = csub.cont_subtract_cube(self, width=width)
         else:
             return csub.cont_subtract_cube(self, width=width)
+
+    def detection_procedure(self, max_snr, starting_thr, min_snr=1.3, delta_snr=0.05, delta_thr=50, test_overlap=True):
         
+        print('Convolving cube with gaussian kernel')
+        dt.convolve_data_SNR(self)
+        print('Creating SNR cube')
+        self.SNR_cube = self.data/np.sqrt(self.variance)
+        print('Iterative detection')
+        SNR_list, voxels_list, mask = dt.iterative_detection(self.SNR_cube, max_snr, starting_thr, min_snr=1.3, delta_snr=0.05, delta_thr=50, test_overlap=True)
+        
+        self.seg_mask = mask
+
     def save_cube_fits(self, file_name):
         hdu = F.PrimaryHDU(self.data)
         hdu.writeto(file_name, overwrite=True)

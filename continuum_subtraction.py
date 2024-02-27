@@ -63,14 +63,12 @@ def rebinning_cube(datacube, width=150, filter_width=2):
 def cont_subtract_cube(cube, width=150, filter_width=2):
 
     nw, nx, ny = cube.data.shape
-    fast_median_cube = rebinning_cube(cube.data)
+    fast_median_cube = rebinning_cube(cube.data, width=width)
     subtracted_cube = np.zeros_like(cube.data)
-    
+
     for i in range(nw):
         pos = int(np.floor(i/width))
-        
-        # Avoid over subtraction :) 
 
-        subtracted_cube[i, :, :] = cube[i,:,:] - fast_median_cube[pos, :,:]
+        subtracted_cube[i, :, :] = cube.data[i,:,:] - fast_median_cube[pos, :,:]
 
     return subtracted_cube
