@@ -29,7 +29,7 @@ class cube:
         self.variance = self.hdu[var_ind].data
         self.z_em = z_em
         self.center = center
-
+        self.convolved  = False
         # Computing wave arr
         initial_lamb = self.hdu[1].header['CRVAL3']
         wavearr = np.arange(0.0, self.data.shape[0] ,1.0) * 1.25 + initial_lamb
@@ -102,14 +102,25 @@ class cube:
 
     def detection_procedure(self, max_snr, starting_thr, min_snr=1.3, delta_snr=0.05, delta_thr=50, test_overlap=True):
         
-        print('Convolving cube with gaussian kernel')
-        dt.convolve_data_SNR(self)
+        if not self.convolved: 
+            print('Convolving cube with gaussian kernel')
+            dt.convolve_data_SNR(self)
+            self.convolved = True
         print('Creating SNR cube')
         self.SNR_cube = self.data/np.sqrt(self.variance)
         print('Iterative detection')
-        SNR_list, voxels_list, mask = dt.iterative_detection(self.SNR_cube, max_snr, starting_thr, min_snr=1.3, delta_snr=0.05, delta_thr=50, test_overlap=True)
-        
+        SNR_list, voxels_list, mask = dt.iterative_detection(self.SNR_cube, max_snr, starting_thr, min_snr=min_snr, 
+                                                                delta_snr=delta_snr, delta_thr=delta_thr, test_overlap=test_overlap)
         self.seg_mask = mask
+
+    def spectrum_extraction(self):
+        min_mask = np.sum(self.seg_mask, axis=0) >= 2.
+        return np.sum(self.data * min_mask[np.newaxis, :,:], axis=(1,2)) 
+    
+    def first_second_moment(self):
+        w0 = self.wavearr[np.argmax(self.spectrum_extraction())]
+        print(w0)
+        return dt.first_second_moment(self.seg_mask, self.data, self.wavearr, w0) 
 
     def save_cube_fits(self, file_name):
         hdu = F.PrimaryHDU(self.data)
