@@ -7,3 +7,8 @@ testing_continuum_sub.ipynb
 Voigt.py
 *.fits
 *.ipynb
+24H12/sky_sub.reg
+__pycache__/detection.cpython-39.pyc
+B0032/continuum_J0034.dat.p
+B0032/sky_sub.reg
+J1259/sky_sub.reg
